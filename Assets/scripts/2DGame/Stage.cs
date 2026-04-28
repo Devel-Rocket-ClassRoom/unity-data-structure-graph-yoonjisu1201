@@ -114,34 +114,35 @@ public class Stage : MonoBehaviour
             position.y -= tileSize.y;
         }
     }
-    public void UpdateVision(int startTileId)
+    public void UpdateVision(int playerTileId)
     {
         foreach (var tile in map.tiles)
         {
-            tile.distance = int.MaxValue;
             tile.isVisited = false;
         }
-        var queue = new Queue<Tile>();
-        Tile startTile = map.tiles[startTileId];
-        startTile.distance = 0;
-        startTile.isVisited = true;
-        queue.Enqueue(startTile);
+        //플레이어 좌표 계산
+        int pX = playerTileId % mapWidth;
+        int pY = playerTileId / mapWidth;
 
-        //캐릭터 부터 3칸 범위 타일만 BFS탐색
-        while (queue.Count > 0)
+        //플레이어 주변 사각형 모양 타일
+        for (int y = -3; y <= 3; y++)
         {
-            Tile currentTile = queue.Dequeue();
-            if (currentTile.distance >= 3)
-                continue;
-            foreach (var adjacent in currentTile.adjacents)
+            for (int x = -3; x <= 3; x++)
             {
-                if (adjacent != null && adjacent.isVisited == false)
+                int targetX = pX + x;
+                int targetY = pY + y;
+                if (targetX >= 0 && targetX < mapWidth && targetY >= 0 && targetY < mapHeight)
                 {
-                    queue.Enqueue(adjacent);
-                    adjacent.isVisited = true;
-                    adjacent.distance = currentTile.distance + 1;
+                    int targetId = targetY * mapWidth + targetX;
+                    map.tiles[targetId].isVisited = true;
                 }
             }
+        }
+        // 안개 타일 갱신, 그리기 (isVisited 조건은 Tile스크립트에서)
+        for (int i = 0; i < map.tiles.Length; i++)
+        {
+            map.tiles[i].UpdateFowTileId(); //타일 Id 설정
+            DecorateTile(i);
         }
     }
     //타일 스프라이트 세팅
@@ -151,18 +152,18 @@ public class Stage : MonoBehaviour
         var tileGo = tileObjs[tileId]; //껍데기
         var ren = tileGo.GetComponent<SpriteRenderer>();
 
-        //캐릭터 부터 3칸 범위 타일
-        if (tile.distance <= 3)
+        //게임맵 타일
+        if (tile.isVisited)
         {
             if (tile.autoTileId != (int)TileType.Empty)
                 ren.sprite = islandSprites[tile.autoTileId];
 
             else
                 ren.sprite = null;
-        } //3칸 범위 초과 타일 (안개)
-        else if (tile.distance >= 4)
+        }
+        else //안개 타일
         {
-            ren.sprite = fowSprites[15];
+            ren.sprite = fowSprites[tile.fowTileId];
         }
 
     }
@@ -171,31 +172,31 @@ public class Stage : MonoBehaviour
 
 
 
-public int ScreenPosToTileId(Vector3 screenPos)
-{
-    screenPos.z = Mathf.Abs(transform.position.z - mainCamera.transform.position.z);
-    return WorldPosToTileId(mainCamera.ScreenToWorldPoint(screenPos));
-}
-public int WorldPosToTileId(Vector3 worldPos)
-{
-    var first = FirstTilePos;
-    int x = Mathf.FloorToInt((worldPos.x - first.x) / tileSize.x + 0.5f);
-    int y = Mathf.FloorToInt((first.y - worldPos.y) / tileSize.y + 0.5f);
-    x = Mathf.Clamp(x, 0, mapWidth - 1);
-    y = Mathf.Clamp(y, 0, mapHeight - 1);
-    return y * mapWidth + x;
-}
-public Vector3 GetTilePos(int tileId)
-{
-    var pos = Vector3.zero;
+    public int ScreenPosToTileId(Vector3 screenPos)
+    {
+        screenPos.z = Mathf.Abs(transform.position.z - mainCamera.transform.position.z);
+        return WorldPosToTileId(mainCamera.ScreenToWorldPoint(screenPos));
+    }
+    public int WorldPosToTileId(Vector3 worldPos)
+    {
+        var first = FirstTilePos;
+        int x = Mathf.FloorToInt((worldPos.x - first.x) / tileSize.x + 0.5f);
+        int y = Mathf.FloorToInt((first.y - worldPos.y) / tileSize.y + 0.5f);
+        x = Mathf.Clamp(x, 0, mapWidth - 1);
+        y = Mathf.Clamp(y, 0, mapHeight - 1);
+        return y * mapWidth + x;
+    }
+    public Vector3 GetTilePos(int tileId)
+    {
+        var pos = Vector3.zero;
 
-    var y = tileId / mapWidth;
-    var x = tileId % mapWidth;
+        var y = tileId / mapWidth;
+        var x = tileId % mapWidth;
 
-    return GetTilePos(y, x);
-}
-public Vector3 GetTilePos(int y, int x)
-    => FirstTilePos + new Vector3(x * tileSize.x, -y * tileSize.y);
+        return GetTilePos(y, x);
+    }
+    public Vector3 GetTilePos(int y, int x)
+        => FirstTilePos + new Vector3(x * tileSize.x, -y * tileSize.y);
 
 
 }

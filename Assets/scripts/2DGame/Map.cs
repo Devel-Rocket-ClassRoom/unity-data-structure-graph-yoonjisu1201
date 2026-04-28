@@ -77,10 +77,10 @@ public class Map
         int total = Mathf.FloorToInt(tiles.Length * percent);
         for (int i = 0; i < total; i++)
         {
-            if (tileType == TileType.Empty)
-            {
-                tiles[i].ClearAdjacents();
-            }
+            //if (tileType == TileType.Empty)
+            //{
+            //    tiles[i].ClearAdjacents();
+            //}
             tiles[i].autoTileId = (int)tileType;
         }
     }

@@ -13,8 +13,9 @@ public class Tile
     public int id;
     public Tile[] adjacents = new Tile[4];             
     public int autoTileId;
+    public int fowTileId;
     public bool isVisited = false;
-    public int distance;
+
     public bool CanMove => autoTileId != (int)TileType.Empty;
 
     public void UpdateAutoTileId()
@@ -29,6 +30,18 @@ public class Tile
                 // i = 1: 0010
                 // i = 0: 0001
                 autoTileId |= 1 << i;
+            }
+        }
+    }
+    public void UpdateFowTileId()
+    {
+        fowTileId = 0;
+        for (int i = 0; i < adjacents.Length; i++)
+        {
+            // 타일이 현재 시야 밖(!isVisited)이라면 안개 비트 추가
+            if (adjacents[i] != null && adjacents[i].isVisited == false)
+            {
+                fowTileId |= 1 << i;
             }
         }
     }
