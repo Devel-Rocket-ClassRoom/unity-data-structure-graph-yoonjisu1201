@@ -297,18 +297,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 558742541}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d890b6f81d2d2964598a5427e20ca31a, type: 3}
+  m_Script: {fileID: 11500000, guid: 639c89699a145c64faf211b46988320d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Stage
   tilePrefabs: {fileID: 1977380257404903655, guid: 03076efc18ca61d48a068d758af47598, type: 3}
   mapWidth: 20
   mapHeight: 20
   erodePercent: 0.5
-  erodeIteration: 2
+  erodeIterations: 2
   lakePercent: 0.1
-  treePercent: 0.1
-  hillPercent: 0.1
-  moutainPercent: 0.1
+  treePercent: 0.2
+  hillPercent: 0.15
+  mountainPercent: 0.1
   townPercent: 0.1
   monsterPercent: 0.1
   tileSize: {x: 16, y: 16}
@@ -353,7 +353,6 @@ MonoBehaviour:
   - {fileID: 21300028, guid: dfa5f63634ba24c06a7c899467e4f9f3, type: 3}
   - {fileID: 21300030, guid: dfa5f63634ba24c06a7c899467e4f9f3, type: 3}
   playerPrefab: {fileID: 3140952153528329836, guid: 9520e535fceb86e448836982758cffc5, type: 3}
-  visitRadius: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

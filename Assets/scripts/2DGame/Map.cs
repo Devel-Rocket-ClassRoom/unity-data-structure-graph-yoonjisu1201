@@ -1,9 +1,15 @@
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Xml.XPath;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
-public enum TileType
+public enum TileTypes
 {
     Empty = -1,
+    // 0~14
     Grass = 15,
     Tree,
     Hills,
@@ -12,30 +18,35 @@ public enum TileType
     Castle,
     Monster,
 }
+
 public class Map
 {
     public int rows = 0;
     public int cols = 0;
+
     public Tile[] tiles;
-    public Tile[] CoastTiles => tiles.Where(t => t.autoTileId >= 0 && t.autoTileId < (int)TileType.Grass).ToArray();
-    public Tile[] LandTiles => tiles.Where(t => t.autoTileId == (int)TileType.Grass).ToArray();
+
+    public Tile[] CoastTiles => tiles.Where(t => t.autoTileId >= 0 && t.autoTileId < (int)TileTypes.Grass).ToArray();
+    public Tile[] LandTiles => tiles.Where(t => t.autoTileId == (int)TileTypes.Grass).ToArray();
+
     public Tile startTile;
     public Tile castleTile;
-    
 
     public void Init(int rows, int cols)
     {
         this.rows = rows;
         this.cols = cols;
+
         tiles = new Tile[rows * cols];
-        for (int i = 0; i < tiles.Length; i++)
+        for (int i = 0; i < tiles.Length; ++i)
         {
             tiles[i] = new Tile();
             tiles[i].id = i;
         }
-        for (int r = 0; r < rows; r++)
+
+        for (int r = 0; r < rows; ++r)
         {
-            for (int c = 0; c < cols; c++)
+            for (int c = 0; c < cols; ++c)
             {
                 var index = r * cols + c;
                 var adjacents = tiles[index].adjacents;
@@ -57,11 +68,14 @@ public class Map
                 }
             }
         }
-        for (int i = 0; i < tiles.Length; i++)
+
+        for (int i = 0; i < tiles.Length; ++i)
         {
             tiles[i].UpdateAutoTileId();
+            tiles[i].UpdateFowTileId();
         }
     }
+
     public void ShuffleTiles(Tile[] tiles)
     {
         for (int i = tiles.Length - 1; i > 0; --i)
@@ -70,46 +84,127 @@ public class Map
             (tiles[rand], tiles[i]) = (tiles[i], tiles[rand]);
         }
     }
-    public void DecorateTiles(Tile[] tiles, float percent, TileType tileType)
+
+    public void DecorateTiles(Tile[] tiles, float percent, TileTypes tileType)
     {
         ShuffleTiles(tiles);
-
         int total = Mathf.FloorToInt(tiles.Length * percent);
-        for (int i = 0; i < total; i++)
+        for (int i = 0; i < total; ++i)
         {
-            //if (tileType == TileType.Empty)
-            //{
-            //    tiles[i].ClearAdjacents();
-            //}
+            if (tileType == TileTypes.Empty)
+            {
+                tiles[i].ClearAdjacents();
+            }
             tiles[i].autoTileId = (int)tileType;
         }
     }
+
     public bool CreateIsland(
-        float erodePercent, //해안선 타일에서 퍼센트만큼 지우려고 만든 매개변수?
+        float erodePercent,
         int erodeIterations,
         float lakePercent,
         float treePercent,
         float hillPercent,
         float mountainPercent,
         float townPercent,
-        float monsterPercent) //Castle은 1개만
+        float monsterPercent)
     {
-        for (int i = 0; i < erodeIterations; i++)
+        DecorateTiles(LandTiles, lakePercent, TileTypes.Empty);
+
+        for (int i = 0; i < erodeIterations; ++i)
         {
-            DecorateTiles(CoastTiles, erodePercent, TileType.Empty);
+            DecorateTiles(CoastTiles, erodePercent, TileTypes.Empty);
         }
 
-        DecorateTiles(LandTiles, lakePercent, TileType.Empty);
-        DecorateTiles(LandTiles, treePercent, TileType.Tree);
-        DecorateTiles(LandTiles, hillPercent, TileType.Hills);
-        DecorateTiles(LandTiles, mountainPercent, TileType.Mountains);
-        DecorateTiles(LandTiles, townPercent, TileType.Towns);
-        DecorateTiles(LandTiles, monsterPercent, TileType.Monster);
-        var towns = tiles.Where(x => x.autoTileId == (int)TileType.Towns).ToArray();
+        DecorateTiles(LandTiles, treePercent, TileTypes.Tree);
+        DecorateTiles(LandTiles, hillPercent, TileTypes.Hills);
+        DecorateTiles(LandTiles, mountainPercent, TileTypes.Mountains);
+        DecorateTiles(LandTiles, townPercent, TileTypes.Towns);
+        DecorateTiles(LandTiles, monsterPercent, TileTypes.Monster);
+
+        var towns = tiles.Where(x => x.autoTileId == (int)TileTypes.Towns).ToArray();
         ShuffleTiles(towns);
         startTile = towns[0];
         castleTile = towns[1];
-        towns[0].autoTileId = (int)TileType.Castle;
-        return true;
+        castleTile.autoTileId = (int)TileTypes.Castle;
+
+        var path = PathFindingAStar(startTile, castleTile);
+        return path.Count > 0;
+    }
+    private int Heuristic(Tile a, Tile b)
+    {
+        int ax = a.id % cols;
+        int ay = a.id / cols;
+
+        int bx = b.id % cols;
+        int by = b.id / cols;
+
+        return Mathf.Abs(ax - bx) + Mathf.Abs(ay - by);
+    }
+    public List<Tile> PathFindingAStar(int startTile, int goalTile)
+    {
+        return PathFindingAStar(tiles[startTile], tiles[goalTile]);
+    }
+    public List<Tile> PathFindingAStar(Tile startTile, Tile endTile)
+    {
+        List<Tile> path = new List<Tile>();
+        path.Clear();
+        foreach (var tile in tiles)
+        {
+            tile.ClearPreviousTile();
+        }
+
+        var visited = new HashSet<Tile>();
+        var pq = new PriorityQueue<Tile, int>();
+        var distances = new int[tiles.Length];
+        for (int i = 0; i < distances.Length; i++)
+        {
+            distances[i] = int.MaxValue;
+        }
+
+        distances[startTile.id] = 0;
+        pq.Enqueue(startTile, distances[startTile.id] + Heuristic(startTile, endTile));
+
+        bool success = false;
+        while (pq.Count > 0)
+        {
+            var currentNode = pq.Dequeue();
+            if (visited.Contains(currentNode))
+                continue;
+            if (currentNode == endTile)
+            {
+                success = true;
+                break;
+            }
+            visited.Add(currentNode);
+            foreach (var adjacent in currentNode.adjacents)
+            {
+                if (adjacent == null) continue;
+                if (!adjacent.CanMove || visited.Contains(adjacent))
+                {
+                    continue;
+                }
+                var newDist = distances[currentNode.id] + adjacent.Weight;
+                if (distances[adjacent.id] > newDist)
+                {
+                    distances[adjacent.id] = newDist;
+                    adjacent.previousTile = currentNode;
+                    pq.Enqueue(adjacent, newDist + Heuristic(adjacent, endTile));
+                }
+            }
+        }
+        if (success)
+        {
+
+
+            Tile step = endTile;
+            while (step != null)
+            {
+                path.Add(step);
+                step = step.previousTile;
+            }
+            path.Reverse();
+        }
+        return path;
     }
 }
